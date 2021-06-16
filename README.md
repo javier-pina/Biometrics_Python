@@ -9,4 +9,4 @@ Steps to correctly use this demo:
 ![DataLite save file off](https://user-images.githubusercontent.com/78418543/122207328-4d30ce00-cea2-11eb-8cf3-d4dd9bee14a0.JPG)
 
 3)  Connect the USB dongle to your computer.
-<img src="https://user-images.githubusercontent.com/78418543/122207801-d0522400-cea2-11eb-8a1f-e924907e3a05.jpg width="48">
+![wireless-dongle](https://user-images.githubusercontent.com/78418543/122208123-36d74200-cea3-11eb-95f1-f366c028dac9.jpg | width=100)
