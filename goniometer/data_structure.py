@@ -1,5 +1,8 @@
-import ctypes
+'''
+This module contains the data structure necessary to store data related to each goniometer axis
+'''
 
+import ctypes
 
 class tagSAFEARRAYBOUND(ctypes.Structure):
     _fields_ = [("cElements", ctypes.c_ulong),
@@ -10,6 +13,6 @@ class tagSAFEARRAY(ctypes.Structure):
                 ("fFeatures",ctypes.c_ushort),
                 ("cbElements",ctypes.c_ulong),
                 ("cLocks",ctypes.c_ulong),
-                ("pvData",ctypes.c_int16 * 20),  #maximo de muestras en buffer si no peta en tiempo real
+                ("pvData",ctypes.c_int16 * 20), # This is the array that will contain the values from the memory buffer associated to a goniometer axis every time it is read using OnLineGetData function. Its size is 20 in order to ensure performance, but it can be increased
                 ("rgsabound",tagSAFEARRAYBOUND),
                 ]
