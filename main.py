@@ -22,10 +22,8 @@ logging.basicConfig( level=logging.DEBUG,
     format='[%(levelname)s] - %(threadName)-10s : %(message)s')
 
 
-###############################################################
-#------------------------FUNCIONES-----------------------------
-###############################################################
-def recoleccion_datos(eje, ani, durationSecs, samplesLeftToPlot):     #hacer de esto una funcion y para cada canal crear un hilo?? de momento lo hago con un canal
+
+def axis_data_collection(eje, ani, durationSecs, samplesLeftToPlot):     #hacer de esto una funcion y para cada canal crear un hilo?? de momento lo hago con un canal
     logging.debug("lanzado")
     
     muestras = 0
@@ -174,12 +172,8 @@ def recoleccion_datos_goniometro(axes, ani, durationSecs, samplesLeftToPlot):   
         biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_START, ctypes.byref(eje.pStatus))
         lock.release()
     
-    #time.sleep(0.2)
-
-    
+    # while data_collection_state:
     while samplesLeftToPlot > 0:
-        time.sleep(0.01)
-
         for eje in axes:
             #cojo las muestras disponibles en el buffer
             lock.acquire()
@@ -295,10 +289,11 @@ def animate(i):
 
     return line1, line2,# line3, line4, line5, line6, line7, line8
 
+
     
-def comenzar(axes):
+def start_stop_data_collection(axes):
     #cojo duracion en segundos
-    durationSecs = int(durationSec_input.get())
+    durationSecs = int(entry_duration.get())
     samplesLeftToPlot = round(axes[0].sampleRate * durationSecs) 
 
     #preparo plots
@@ -312,16 +307,6 @@ def comenzar(axes):
     subplot1.grid()
     subplot1.set_ylim(-180,180)
     subplot1.set_xlim(0, durationSecs)
-
-    subplot2.clear()
-    subplot2.grid()
-    subplot2.set_ylim(-180,180)
-    subplot2.set_xlim(0, durationSecs)
-
-    subplot3.clear()
-    subplot3.grid()
-    subplot3.set_ylim(-180,180)
-    subplot3.set_xlim(0, durationSecs)
     """
 
     if threading.active_count() == 1:
@@ -388,12 +373,6 @@ def comenzar(axes):
     else:
         print("no ha terminado el experimento anterior")
 
-
-def hilos():
-    print(f"hilos: {threading.enumerate()}")
-    print(f"hilo activo: {threading.current_thread()}")
-
-
 ###############################################################
 #------------------------GONIOMETRO----------------------------
 ###############################################################
@@ -426,30 +405,19 @@ matplotlib.use("TkAgg")
 
 
 #-----------------------------Label y input-----------------------
-label_segundos = tk.Label(window, text = "duración experimento (s)")
-label_segundos.pack()
+lbl_duration = tk.Label(window, text = "Experiment duration (s):")
+lbl_duration.pack()
 
-durationSec_input = tk.Entry(window)
-durationSec_input.pack()
-durationSec_input.insert(0,'10')
-durationSecs = int(durationSec_input.get())
-
-label_canales = tk.Label(window, text = "número de canales")
-label_canales.pack()
-
-canales_input = tk.Entry(window)
-canales_input.pack()
-canales_input.insert(0,'1')
-canales = int(canales_input.get())
-
+entry_duration = tk.Entry(window)
+entry_duration.pack()
+entry_duration.insert(0,'10')
+durationSecs = int(entry_duration.get())
 
 
 #-----------------------------Botones---------------------------
-boton = tk.Button(window, text = "comenzar", command = lambda:comenzar(axes))
-boton.pack()
+btn_start = tk.Button(window, text = "START", command = lambda:start_stop_data_collection(axes))
+btn_start.pack(pady = 10)
 
-boton_threads = tk.Button(window, text = "threads", command = hilos)
-boton_threads.pack()
  
 
 #-----------------------------Figura y plots------------------------
@@ -468,39 +436,12 @@ subplot1 = f.add_subplot(222)  #creo subplots: filas, columnas, índice del subp
 subplot1.grid()
 subplot1.set_ylim(-180,180)
 subplot1.set_xlim(0, durationSecs, durationSecs * 100)
-line3, = subplot1.plot([], [], lw=2, color = "red")
-line4, = subplot1.plot([], [], lw=2, color = "green")
-
-subplot2 = f.add_subplot(223)  #creo subplots: filas, columnas, índice del subplot actual
-subplot2.grid()
-subplot2.set_ylim(-180,180)
-subplot2.set_xlim(0, durationSecs, durationSecs * 100)
-line5, = subplot2.plot([], [], lw=2, color = "red")
-line6, = subplot2.plot([], [], lw=2, color = "green")
-
-subplot3 = f.add_subplot(224)  #creo subplots: filas, columnas, índice del subplot actual
-subplot3.grid()
-subplot3.set_ylim(-180,180)
-subplot3.set_xlim(0, durationSecs, durationSecs * 100)
-line7, = subplot3.plot([], [], lw=2, color = "red")
-line8, = subplot3.plot([], [], lw=2, color = "green")
+line3, = subplot1.plot([], [], lw=2, color = "blue")
+line4, = subplot1.plot([], [], lw=2, color = "yellow")
 """
 
-"""
-#------------------------Notebook--------------------------
-notebook = ttk.Notebook(window, width=500, height=500)
-
-tab = ttk.Frame(notebook)
-notebook.add(tab, text = 'tab')
-
-tab1 = ttk.Frame(notebook)
-notebook.add(tab1, text = 'tab1')
-
-notebook.pack(expand=True, fill=tk.BOTH)
-"""
 
 #----------------------------Canvas-----------------------------
-#canvas = FigureCanvasTkAgg(f, tab)   #creo canvas indicando figura y frame padre
 canvas = FigureCanvasTkAgg(f, window)   #creo canvas indicando figura y frame padre
 canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)  #para ponerlo en la interfaz
 

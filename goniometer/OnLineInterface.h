@@ -1,3 +1,11 @@
+/*
+This module shows the data structure from "data_structure.py" and "OnLineGetData" and "OnLineStatus" function prototypes written in C.
+
+This is the original code provided by Biometrics in order to create:
+	- The data structure from "data_structure.py"
+	- The "OnLineGetData" and "OnLineStatus" function prototypes
+*/
+
 typedef struct tagSAFEARRAYBOUND {
 	unsigned long cElements;
 	long lLbound;
