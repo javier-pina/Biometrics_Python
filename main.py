@@ -18,7 +18,7 @@ import numpy as np
 class Application_demo():
     def __init__(self):
         self.data_collection_status = False
-        self.time_window = 5
+        self.time_window = 15
         self.time_window_ovf_count = 0
 
         ###############################################################
@@ -40,12 +40,12 @@ class Application_demo():
 
 
         #-----------------------------Botones---------------------------
-        self.btn_start = tk.Button(self.window, text = "START", command = lambda: self.start_stop_data_collection())
-        self.btn_start.pack(pady = 10)
+        self.btn_start = tk.Button(self.window, text = "START", font = 30, command = lambda: self.start_stop_data_collection())
+        self.btn_start.pack(pady = 5)
 
 
         #-----------------------------Figura y plots------------------------
-        self.f = Figure(figsize=(5,5), dpi=100)  #creo figura dando tamaño en pulgadas y pixeles por pulgada
+        self.f = Figure(figsize=(10,7), dpi=100)  #creo figura dando tamaño en pulgadas y pixeles por pulgada
 
         #subplot = f.add_subplot(221)  #creo subplots: filas, columnas, índice del subplot actual
         self.subplot = self.f.add_subplot(111)  #creo subplots: filas, columnas, índice del subplot actual
