@@ -13,6 +13,6 @@ class tagSAFEARRAY(ctypes.Structure):
                 ("fFeatures",ctypes.c_ushort),
                 ("cbElements",ctypes.c_ulong),
                 ("cLocks",ctypes.c_ulong),
-                ("pvData",ctypes.c_int16 * 20), # This is the array that will contain the values from the memory buffer associated to a goniometer axis every time it is read using OnLineGetData function. Its size is 20 in order to ensure performance, but it can be increased
+                ("pvData",ctypes.c_int16 * 50), # This is the array that will contain the values from the memory buffer associated to a goniometer axis every time it is read using OnLineGetData function. Its size is 50 in order to ensure performance, but it can be increased
                 ("rgsabound",tagSAFEARRAYBOUND),
                 ]

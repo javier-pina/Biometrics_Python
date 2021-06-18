@@ -1,9 +1,6 @@
 import ctypes
 
 from goniometer import biometrics_library, axis, OLI
-
-import time
-
 import tkinter as tk 
 from tkinter import ttk
 
@@ -13,437 +10,178 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
 
-import threading, logging
+import threading
 
 import numpy as np
 
 
-logging.basicConfig( level=logging.DEBUG,
-    format='[%(levelname)s] - %(threadName)-10s : %(message)s')
+class Application_demo():
+    def __init__(self):
+        self.data_collection_status = False
+        self.time_window = 5
+        self.time_window_ovf_count = 0
+
+        ###############################################################
+        #------------------------GONIOMETRO----------------------------
+        ###############################################################
+
+        self.dll_path = "OnLineInterface64.dll"
+        self.biometrics_library = biometrics_library.Biometrics_library(self.dll_path)
+
+        self.sample_rate = 100
+        self.axes = [axis.Axis(0, self.sample_rate), axis.Axis(1, self.sample_rate)]
 
 
-
-def axis_data_collection(eje, ani, durationSecs, samplesLeftToPlot):     #hacer de esto una funcion y para cada canal crear un hilo?? de momento lo hago con un canal
-    logging.debug("lanzado")
-    
-    muestras = 0
-    
-    #limpio buffer de axes
-    biblioteca.INBIO(eje)
-
-    #inicializa zero samples counter y segundos
-    eje.zeroSamplesCounter = 0
-    eje.seconds = 0
-    
-    #barrera para llamar a recoleccion de datos a la vez
-    barrier.wait()
-
-    #Start Data Collection to get some data before plotting it
-    biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_START, ctypes.byref(eje.pStatus))
-
-    #barrera para reoger datos a la vez
-
-    """
-    logging.debug(f"tiempo inicial goniómetros: {tiempo_init_hilo}")
-    logging.debug("------------------------------------")
-    """
-    barrier.wait()
-    while samplesLeftToPlot > 0:
-        #cojo las muestras disponibles en el buffer
-        lock.acquire()
-        biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_GETSAMPLES, ctypes.byref(eje.pStatus))
-        lock.release()
-        eje.samplesInBuffer = eje.pStatus.value
-
-        #error en el buffer puede que se haya desbordado
-        if (eje.samplesInBuffer < 0):
-            print(f'OnLineStatus ONLINE_GETSAMPLES ha devuelto: {eje.samplesInBuffer}')
-            #cerrar todos los plots
-            break
-
-        
-        #no hay muestras disponibles
-        if (eje.samplesInBuffer == 0):
-            eje.zeroSamplesCounter += 1
-            if (eje.zeroSamplesCounter > 100000):
-                print("Estás seguro de haber desactivado el modo de guardar en archivo y que todos los sensores están encendidos?")
-                #cerrar todo
-                break
-        
-        #si hay muestras en el buffer...
-        if(eje.samplesInBuffer > 10):
-            eje.zeroSamplesCounter = 0
-
-            #si hay más muestras (samplesInBuffer) de las que quiero sacar (samplesLeftToPlott)...
-            if eje.samplesInBuffer > samplesLeftToPlot:
-                eje.samplesInBuffer = samplesLeftToPlot
-
-            if eje.samplesInBuffer > 20: #hago esto porque el vector de pvData es de maximo 25
-                eje.samplesInBuffer = 20
-
-            #inicializo variables
-            mStoGet = round(eje.samplesInBuffer * 1000 / eje.sampleRate)
-            eje.seconds += round(mStoGet/1000, 5)
-            eje.samplesInBuffer = round(mStoGet * eje.sampleRate / 1000)
-            mStoGet = ctypes.c_int(mStoGet)
-
-            #inicializo estructura de datos
-            eje.dataStructure.contents.cDims = 0
-
-            #llamo a onlinegetdata para obtener mediciones
-            lock.acquire()
-            biblioteca.OnLineGetData(eje.canal, mStoGet, ctypes.byref(eje.dataStructure), ctypes.byref(eje.pDataNum))
-            lock.release()
-            numberOfSamplesReceived = eje.pDataNum.value
-            
-            """
-            lock.acquire()
-            print(axes[0].dataStructure.contents.cDims)
-            print(axes[0].dataStructure.contents.fFeatures)
-            print(axes[0].dataStructure.contents.cbElements)
-            print(axes[0].dataStructure.contents.cLocks)
-            print(list(axes[0].dataStructure.contents.pvData))
-            print(axes[0].dataStructure.contents.rgsabound.cElements)
-            print(axes[0].dataStructure.contents.rgsabound.lLbound)
-            print("--------------------------------------------")
-            lock.release()
-            """
-            
-            #muestras += len(list(axes[0].dataStructure.contents.pvData))
-
-            #cojo el raw output del canal quitando los diez primeros valores que son basura
-            raw_output = list(eje.dataStructure.contents.pvData)[10:numberOfSamplesReceived]
-            print(raw_output)
-
-            #hago conversion de todos los valores entre -4000 y 4000 a -180 y 180
-            fixed_output = [round(valor*(180/4000), 1) for valor in raw_output if valor in range(-4000,4000)]
-            eje.output.extend(fixed_output)
+        ###############################################################
+        #-----------------------------TKINTER--------------------------
+        ###############################################################
+        self.window = tk.Tk()
+        matplotlib.use("TkAgg")
 
 
-            """
-            logging.debug(f"marca de tiempo BT: {tiempo_goniometro}")
+        #-----------------------------Botones---------------------------
+        self.btn_start = tk.Button(self.window, text = "START", command = lambda: self.start_stop_data_collection())
+        self.btn_start.pack(pady = 10)
 
-            logging.debug(f"ángulos: {fixed_output_ESP32}")
-            
-            logging.debug("-------------------------------")
 
-            """
-            #actualizo el valor de muestras por plotear
-            #print(f'samplesInBuffer: {eje.samplesInBuffer}\nsamplesLeftToPlot: {samplesLeftToPlot}')
-            lock.acquire()
-            samplesLeftToPlot = samplesLeftToPlot - numberOfSamplesReceived
-            lock.release()
+        #-----------------------------Figura y plots------------------------
+        self.f = Figure(figsize=(5,5), dpi=100)  #creo figura dando tamaño en pulgadas y pixeles por pulgada
 
-    #socket.send(bytes([254]))
-    lock.acquire()
+        #subplot = f.add_subplot(221)  #creo subplots: filas, columnas, índice del subplot actual
+        self.subplot = self.f.add_subplot(111)  #creo subplots: filas, columnas, índice del subplot actual
+        self.subplot.grid()
+        self.subplot.set_ylim(-180,180)
+        self.subplot.set_xlim(0, self.time_window)
+        self.line1, = self.subplot.plot([], [], lw=2, color = "red")
+        self.line2, = self.subplot.plot([], [], lw=2, color = "green")
 
-    #si no hay mas muestras que plotear temrinar la recogida de datos y animación
-    print("no hay más muestras en el intervalo de tiempo definido")
-    
-    ani.event_source.stop()
-    biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_STOP, ctypes.byref(eje.pStatus))
 
-    #print(f"ángulos: {axes[0].output}\nmuestras útiles: {len(axes[0].output)}\nmuestras totales eje 0:{muestras}\ntiempo: {axes[0].seconds}")
-    logging.debug("deteniendo")
-    lock.release()
+        #----------------------------Canvas-----------------------------
+        self.canvas = FigureCanvasTkAgg(self.f, self.window)   #creo canvas indicando figura y frame padre
+        self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)  #para ponerlo en la interfaz
 
-def recoleccion_datos_goniometro(axes, ani, durationSecs, samplesLeftToPlot):     #hacer de esto una funcion y para cada canal crear un hilo?? de momento lo hago con un canal
-    logging.debug("lanzado")
-    
-    #cojo duracion en segundos y samplesleftoplot
-    #durationSecs = int(durationSec_input.get())
-    #samplesLeftToPlot = round(axes[0].sampleRate * durationSecs)   #muestras que quedan dentro del margen de durationSec 
 
-    for eje in axes:
-        #limpio buffer de axes
-        lock.acquire()
-        biblioteca.INBIO(eje)
-        lock.release()
+    def start_stop_data_collection(self):
+        if not self.data_collection_status:
+            self.btn_start.configure(text="STOP")
 
-        #inicializa zero samples counter y segundos
-        eje.zeroSamplesCounter = 0
-        eje.seconds = 0
-        
-        #print(f'cDims: {eje.dataStructure.contents.cDims}\nfFeatures: {eje.dataStructure.contents.fFeatures}\ncbElements: {eje.dataStructure.contents.cbElements}\ncLocks: {eje.dataStructure.contents.cLocks}')
-        #print(f'cElements: {eje.dataStructure.contents.rgsabound.cElements}\nlLbound: {eje.dataStructure.contents.rgsabound.lLbound}')
+            self.data_collection_status = True
 
-        #Start Data Collection to get some data before plotting it
-        lock.acquire()
-        biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_START, ctypes.byref(eje.pStatus))
-        lock.release()
-    
-    # while data_collection_state:
-    while samplesLeftToPlot > 0:
-        for eje in axes:
-            #cojo las muestras disponibles en el buffer
-            lock.acquire()
-            biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_GETSAMPLES, ctypes.byref(eje.pStatus))
-            lock.release()
-            eje.samplesInBuffer = eje.pStatus.value
+            self.axes[0].output.clear()
+            self.axes[0].seconds = 0
+            self.axes[1].output.clear()
+            self.axes[1].seconds = 0
 
-            #error en el buffer puede que se haya desbordado
-            if (eje.samplesInBuffer < 0):
-                print(f'OnLineStatus ONLINE_GETSAMPLES ha devuelto: {eje.samplesInBuffer}')
-                #cerrar todos los plots
-                break
+            # prepare plots
+            self.subplot.clear()
+            self.subplot.grid()
+            self.subplot.set_ylim(-180,180)
+            self.subplot.set_xlim(0, self.time_window)
+            self.time_window_ovf_count = 0
 
-            #no hay muestras disponibles
-            if (eje.samplesInBuffer == 0):
-                eje.zeroSamplesCounter += 1
-                if (eje.zeroSamplesCounter > 100000):
-                    print("Estás seguro de haber desactivado el modo de guardar en archivo y que todos los sensores están encendidos?")
-                    #cerrar todo
-                    break
-            
-            #si hay muestras en el buffer...
-            else:
-                eje.zeroSamplesCounter = 0
 
-                #si hay más muestras (samplesInBuffer) de las que quiero sacar (samplesLeftToPlott)...
-                if eje.samplesInBuffer > samplesLeftToPlot:
-                    eje.samplesInBuffer = samplesLeftToPlot
+            if threading.active_count() == 1:
+                ani = FuncAnimation(self.f, self.animate, interval=10, blit=True)
+                self.line1.set_data([], [])
+                self.line2.set_data([], [])
 
-                if eje.samplesInBuffer > 25: #hago esto porque el vector de pvData es de maximo 25
-                    eje.samplesInBuffer = 25
-
-                #inicializo variables
-                mStoGet = round(eje.samplesInBuffer * 1000 / eje.sampleRate)
-                eje.seconds += round(mStoGet/1000, 5)
-                eje.samplesInBuffer = round(mStoGet * eje.sampleRate / 1000)
-                mStoGet = ctypes.c_int(mStoGet)
-
-                #inicializo estructura de datos
-                eje.dataStructure.contents.cDims = 0
-
-                #llamo a onlinegetdata para obtener mediciones
-                lock.acquire()
-                biblioteca.OnLineGetData(eje.canal, mStoGet, ctypes.byref(eje.dataStructure), ctypes.byref(eje.pDataNum))
-                lock.release()
-                numberOfSamplesReceived = eje.pDataNum.value
-
-                #cojo el raw output del canal quitando los diez primeros valores que son basura
-                raw_output = list(eje.dataStructure.contents.pvData)[10:numberOfSamplesReceived]
-
-                #hago conversion de todos los valores entre -4000 y 4000 a -180 y 180
-                fixed_output = [round(valor*(180/4000), 1) for valor in raw_output if valor in range(-4000,4000)]
-
-                eje.output.extend(fixed_output)
+                thread = threading.Thread(name="data_collection_thread", daemon=True, target=self.data_collection, args=(ani,))
+                thread.start()
                 
-                #actualizo el valor de muestras por plotear
-                print(f'samplesInBuffer: {eje.samplesInBuffer}\nsamplesLeftToPlot: {samplesLeftToPlot}')
-                lock.acquire()
-                samplesLeftToPlot -= numberOfSamplesReceived
-                lock.release()
-    
-    #si no hay mas muestras que plotear temrinar la recogida de datos y animación
-    print("no hay más muestras en el intervalo de tiempo definido")
-    lock.acquire()
-    ani.event_source.stop()
-    biblioteca.OnLineStatus(eje.canal, OLI.ONLINE_STOP, ctypes.byref(eje.pStatus))
-    lock.release()
-    
-    #print(f'cDims: {eje.dataStructure.contents.cDims}\nfFeatures: {eje.dataStructure.contents.fFeatures}\ncbElements: {eje.dataStructure.contents.cbElements}\ncLocks: {eje.dataStructure.contents.cLocks}')
-    #print(f'cElements: {eje.dataStructure.contents.rgsabound.cElements}\nlLbound: {eje.dataStructure.contents.rgsabound.lLbound}')
-    
-    #print(threading.enumerate())
-
-    logging.debug("deteniendo")
-
-def animate(i):
-    y1 = np.array(axes[0].output)
-    y2 = np.array(axes[1].output)
-
-    """
-    y3 = np.array(axes[2].output)
-    y4 = np.array(axes[3].output)
-    y5 = np.array(axes[4].output)
-    y6 = np.array(axes[5].output)
-    y7 = np.array(axes[6].output)
-    y8 = np.array(axes[7].output)
-    """
-
-    x1 = np.linspace(0, axes[0].seconds, y1.size)
-    x2 = np.linspace(0, axes[1].seconds, y2.size)
-
-    """
-    x3 = np.linspace(0, axes[2].seconds, y3.size)
-    x4 = np.linspace(0, axes[3].seconds, y4.size)
-    x5 = np.linspace(0, axes[4].seconds, y5.size)
-    x6 = np.linspace(0, axes[5].seconds, y6.size)
-    x7 = np.linspace(0, axes[6].seconds, y7.size)
-    x8 = np.linspace(0, axes[7].seconds, y8.size)
-    """
-
-    line1.set_data(x1, y1)
-    line2.set_data(x2, y2)
-
-    """
-    line3.set_data(x3, y3)
-    line4.set_data(x4, y4)
-    line5.set_data(x5, y5)
-    line6.set_data(x6, y6)
-    line7.set_data(x7, y7)
-    line8.set_data(x8, y8)
-    """
+                
+        else:
+            self.data_collection_status = False
+            self.btn_start.configure(text="START")
 
 
-    return line1, line2,# line3, line4, line5, line6, line7, line8
 
+    def data_collection(self, ani):     #hacer de esto una funcion y para cada channel crear un hilo?? de momento lo hago con un channel
+        for axis in self.axes:
+            #limpio buffer de axes
+            
+            self.biometrics_library.empty_buffer(axis)
+            
+            #inicializa zero samples counter y segundos
+            axis.zeroSamplesCounter = 0
+            axis.seconds = 0
 
-    
-def start_stop_data_collection(axes):
-    #cojo duracion en segundos
-    durationSecs = int(entry_duration.get())
-    samplesLeftToPlot = round(axes[0].sampleRate * durationSecs) 
-
-    #preparo plots
-    subplot.clear()
-    subplot.grid()
-    subplot.set_ylim(-180,180)
-    subplot.set_xlim(0, durationSecs)
-    
-    """
-    subplot1.clear()
-    subplot1.grid()
-    subplot1.set_ylim(-180,180)
-    subplot1.set_xlim(0, durationSecs)
-    """
-
-    if threading.active_count() == 1:
-        #creo animaciones
-        ani = FuncAnimation(f, animate, interval=10, blit=True)
-        line1.set_data([], [])
-        line2.set_data([], [])
-
-        """
-        line3.set_data([], [])
-        line4.set_data([], [])
+            #Start Data Collection to get some data before plotting it
+            self.biometrics_library.OnLineStatus(axis.channel, OLI.ONLINE_START, ctypes.byref(axis.pStatus))
         
-        line5.set_data([], [])
-        line6.set_data([], [])
-        line7.set_data([], [])
-        line8.set_data([], [])
-        """
-        
- 
-        #creo e inicio hilos
-        """
-        hilo = threading.Thread(name="hilo", daemon=True, target=recoleccion_datos_goniometro, args=([axes[0], axes[1]], ani, durationSecs, samplesLeftToPlot))
-        hilo.start()
-        
-        hilo1 = threading.Thread(name="hilo", daemon=True, target=recoleccion_datos_goniometro, args=([axes[2], axes[3]], ani, durationSecs, samplesLeftToPlot))
-        hilo1.start()
-        
-        hilo2 = threading.Thread(name="hilo", daemon=True, target=recoleccion_datos_goniometro, args=([axes[4], axes[5]], ani, durationSecs, samplesLeftToPlot))
-        hilo2.start()
-        
-        hilo3 = threading.Thread(name="hilo", daemon=True, target=recoleccion_datos_goniometro, args=([axes[6], axes[7]], ani, durationSecs, samplesLeftToPlot))
-        hilo3.start()
-        """
+        # while data_collection_state:
+        while self.data_collection_status:
+            for axis in self.axes:
+                #cojo las muestras disponibles en el buffer
+                self.biometrics_library.OnLineStatus(axis.channel, OLI.ONLINE_GETSAMPLES, ctypes.byref(axis.pStatus))
+                
+                axis.samplesInBuffer = axis.pStatus.value
 
-        thread = threading.Thread(name="hilo_canal_0", daemon=True, target=recoleccion_datos, args=(axes[0], ani, durationSecs, samplesLeftToPlot))
-        thread.start()
+                # error
+                if (axis.samplesInBuffer < 0):
+                    print(f'OnLineStatus ONLINE_GETSAMPLES returned: {axis.samplesInBuffer}')
+                    #cerrar todos los plots
+                    break
+
+                # no samples available
+                if (axis.samplesInBuffer == 0):
+                    axis.zeroSamplesCounter += 1
+                    if (axis.zeroSamplesCounter > 100000):
+                        print("Did you switch on the sensor and turned off the save file mode on Biometrics DataLite application?")
+                        break
+                
+                # samples vailable
+                else:
+                    axis.zeroSamplesCounter = 0
+
+                    if axis.samplesInBuffer > 50: # this is the samples limit explained in data_structure.py
+                        axis.samplesInBuffer = 50
+
+                    # intialize some variables
+                    mStoGet = round(axis.samplesInBuffer * 1000 / axis.sampleRate)
+                    axis.seconds += round(mStoGet/1000, 5)
+                    axis.samplesInBuffer = round(mStoGet * axis.sampleRate / 1000)
+                    mStoGet = ctypes.c_int(mStoGet)
+                    axis.dataStructure.contents.cDims = 0
+
+                    # call OnlineGetData to get the samples
+                    self.biometrics_library.OnLineGetData(axis.channel, mStoGet, ctypes.byref(axis.dataStructure), ctypes.byref(axis.pDataNum))
+                    
+                    numberOfSamplesReceived = axis.pDataNum.value
+
+                    # remove the 10 first values as they are not angles, just metadata
+                    raw_output = list(axis.dataStructure.contents.pvData)[10:(10 + numberOfSamplesReceived)]
+
+                    # convert the angles from -4000,4000 to -180,180
+                    fixed_output = [round(valor*(180/4000), 1) for valor in raw_output if valor in range(-4000,4000)]
+
+                    axis.output.extend(fixed_output)
+                    
         
-        
-        thread1 = threading.Thread(name="hilo_canal_1", daemon=True, target=recoleccion_datos, args=(axes[1], ani, durationSecs, samplesLeftToPlot))
-        thread1.start()
+        ani.event_source.stop()
+        self.biometrics_library.OnLineStatus(axis.channel, OLI.ONLINE_STOP, ctypes.byref(axis.pStatus))
         
 
-        """
-        thread2 = threading.Thread(name="hilo_canal_2", daemon=True, target=recoleccion_datos, args=(axes[2], ani, durationSecs, samplesLeftToPlot))
-        thread2.start()
 
-        thread3 = threading.Thread(name="hilo_canal_3", daemon=True, target=recoleccion_datos, args=(axes[3], ani, durationSecs, samplesLeftToPlot))
-        thread3.start()
+    def animate(self, i):
+        # time window overflow control
+        if(self.axes[0].seconds > self.time_window * (self.time_window_ovf_count + 1)):
+            self.time_window_ovf_count += 1
+            self.subplot.set_xlim([self.time_window * self.time_window_ovf_count, self.time_window * (self.time_window_ovf_count+1)])    
 
-        
-        thread4 = threading.Thread(name="hilo_canal_4", daemon=True, target=recoleccion_datos, args=(axes[4], ani, durationSecs, samplesLeftToPlot))
-        thread4.start()
+        # angles
+        y1 = np.array(self.axes[0].output)
+        y2 = np.array(self.axes[1].output)
 
-        thread5 = threading.Thread(name="hilo_canal_5", daemon=True, target=recoleccion_datos, args=(axes[5], ani, durationSecs, samplesLeftToPlot))
-        thread5.start()
+        # time
+        x1 = np.linspace(0, self.axes[0].seconds, y1.size)
+        x2 = np.linspace(0, self.axes[1].seconds, y2.size)
 
-        thread6 = threading.Thread(name="hilo_canal_6", daemon=True, target=recoleccion_datos, args=(axes[6], ani, durationSecs, samplesLeftToPlot))
-        thread6.start()
+        self.line1.set_data(x1, y1)
+        self.line2.set_data(x2, y2)
 
-        thread7 = threading.Thread(name="hilo_canal_7", daemon=True, target=recoleccion_datos, args=(axes[7], ani, durationSecs, samplesLeftToPlot))
-        thread7.start()
-        """
-        
-    else:
-        print("no ha terminado el experimento anterior")
-
-###############################################################
-#------------------------GONIOMETRO----------------------------
-###############################################################
-
-dll_path = "OnLineInterface64.dll"
-biblioteca = biometrics_library.Biometrics_library(dll_path)
-
-sample_rate = 100
-axes = [axis.Axis(0, sample_rate), axis.Axis(1,sample_rate)]
-
-lock = threading.Lock()
-hilos = 2
-barrier = threading.Barrier(hilos)
-
-print(axes[0].dataStructure.contents.cDims)
-print(axes[0].dataStructure.contents.fFeatures)
-print(axes[0].dataStructure.contents.cbElements)
-print(axes[0].dataStructure.contents.cLocks)
-print(list(axes[0].dataStructure.contents.pvData))
-print(axes[0].dataStructure.contents.rgsabound.cElements)
-print(axes[0].dataStructure.contents.rgsabound.lLbound)
+        return self.line1, self.line2
 
 
+application_demo = Application_demo()
+application_demo.window.mainloop()
 
-###############################################################
-#-----------------------------TKINTER--------------------------
-###############################################################
-window = tk.Tk()
-matplotlib.use("TkAgg")
-
-
-#-----------------------------Label y input-----------------------
-lbl_duration = tk.Label(window, text = "Experiment duration (s):")
-lbl_duration.pack()
-
-entry_duration = tk.Entry(window)
-entry_duration.pack()
-entry_duration.insert(0,'10')
-durationSecs = int(entry_duration.get())
-
-
-#-----------------------------Botones---------------------------
-btn_start = tk.Button(window, text = "START", command = lambda:start_stop_data_collection(axes))
-btn_start.pack(pady = 10)
-
- 
-
-#-----------------------------Figura y plots------------------------
-f = Figure(figsize=(5,5), dpi=100)  #creo figura dando tamaño en pulgadas y pixeles por pulgada
-
-#subplot = f.add_subplot(221)  #creo subplots: filas, columnas, índice del subplot actual
-subplot = f.add_subplot(111)  #creo subplots: filas, columnas, índice del subplot actual
-subplot.grid()
-subplot.set_ylim(-180,180)
-subplot.set_xlim(0, durationSecs)
-line1, = subplot.plot([], [], lw=2, color = "red")
-line2, = subplot.plot([], [], lw=2, color = "green")
-
-"""
-subplot1 = f.add_subplot(222)  #creo subplots: filas, columnas, índice del subplot actual
-subplot1.grid()
-subplot1.set_ylim(-180,180)
-subplot1.set_xlim(0, durationSecs, durationSecs * 100)
-line3, = subplot1.plot([], [], lw=2, color = "blue")
-line4, = subplot1.plot([], [], lw=2, color = "yellow")
-"""
-
-
-#----------------------------Canvas-----------------------------
-canvas = FigureCanvasTkAgg(f, window)   #creo canvas indicando figura y frame padre
-canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)  #para ponerlo en la interfaz
-
-
-window.mainloop()
