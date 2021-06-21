@@ -23,7 +23,6 @@ class Application_demo():
         self.time_window = 15
         self.time_window_ovf_count = 0
 
-
         #----------------------- Goniometer -----------------------
         self.dll_path = "OnLineInterface64.dll"
         self.biometrics_library = biometrics_library.Biometrics_library(self.dll_path)
