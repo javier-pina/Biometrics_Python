@@ -50,7 +50,11 @@ The code is quite commented in order to be understandable, allowing the user to 
 
 4) Configure your goniometer as shown in the following image. The X axis must be the channel number 1 while the Y axis must be the channel number 2.
 
+![goniometer_configuration](https://user-images.githubusercontent.com/78418543/122772340-91a7d980-d2a7-11eb-98ed-0628b6daf239.JPG)
+
 5) Configure your goniometer sample rate to 100 samples per second as shown below.
+
+![sample_rate](https://user-images.githubusercontent.com/78418543/122771168-7a1c2100-d2a6-11eb-86b6-1085011ffd77.JPG)
 
 6) Install the Python dependencies, if necessary.
 
