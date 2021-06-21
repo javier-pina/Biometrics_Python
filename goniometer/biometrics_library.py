@@ -49,13 +49,13 @@ class Biometrics_library:
             # Set the return value data type
             self.OnLineGetData.restype = ctypes.c_long
 
-            print("biblioteca cargada")
+            print("OnlineInterface64.dll loaded")
 
         except:
             self.OnLineInterface64 = 0
-            print("no se pudo cargar la biblioteca. Abre la aplicación de biometrics")
+            print("The Biometrics OnlineInterface64.dll library did not load correctly. Please, open the Biometrics DataLite application, turn off the save file mode and press the ''Reload library'' button.")      
 
-    # This function is used to empty the memory buffer associated to a goniometer axis before start receiving new data
+    # This method is used to empty the memory buffer associated to a goniometer axis before start receiving new data
     def empty_buffer(self, axis):   
         axis.dataStructure.contents.cDims = 1
         axis.dataStructure.contents.cbElements = 2
@@ -69,14 +69,15 @@ class Biometrics_library:
 
         # If there is an error
         if(axis.samplesInBuffer < 0 or axis.samplesInBuffer < 0):
-            print(f"OnLineStatus ONLINE_GETSAMPLES del channel {axis.channel.value} ha devuelto: {axis.samplesInBuffer}")
+            print(f'OnLineStatus ONLINE_GETSAMPLES returned: {axis.samplesInBuffer}')
             
         # If no samples received
         if(axis.samplesInBuffer == 0 or axis.samplesInBuffer == 0):
-            print(f"buffer del channel {axis.channel.value} vacío")
+            print(f"Memory buffer already empty")
 
         # If there are new samples in the memory buffer
         if(axis.samplesInBuffer > 0):
+            print("Emptying memory buffer...")
             # Calculate the miliseconds of samples available in the buffer
             mSinBuffer = round(axis.samplesInBuffer * 1000 / axis.sampleRate)
 
@@ -87,7 +88,7 @@ class Biometrics_library:
             axis.dataStructure.contents.rgsabound.cElements = axis.samplesInBuffer
             axis.dataStructure.contents.rgsabound.lLbound = axis.samplesInBuffer
 
-            # Call OnlineGetData to get the samples in buffer
+            # Call OnlineGetData to take the samples out of the buffer
             self.OnLineGetData(axis.channel, ctypes.c_int(mSinBuffer), ctypes.byref(axis.dataStructure), ctypes.byref(axis.pDataNum))
 
-            print(f"buffer del channel {axis.channel.value} vacío")
+            print(f"Memory buffer empty")
