@@ -16,6 +16,7 @@ import ctypes
 
 class Biometrics_library:
     def __init__(self, dll_path):
+
         try:    
             #-------------------- Load Biometrics dll file ---------------
             self.OnLineInterface64 = ctypes.CDLL(dll_path)

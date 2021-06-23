@@ -65,6 +65,10 @@ class Application_demo():
         self.frame_button.pack()
         self.frame_plot.pack()
 
+        # Initial instances of thread and animation function
+        self.ani = FuncAnimation(self.f, self.animate, interval=10, blit=True)
+        self.thread = threading.Thread(name="data_collection_thread", daemon=True, target=self.data_collection, args=(self.ani,))
+
     # This method is used to reload the Biometrics library as shown in "biometrics_library.py"
     def reload_library(self):
         self.biometrics_library = biometrics_library.Biometrics_library(self.dll_path)
@@ -92,13 +96,16 @@ class Application_demo():
                 self.time_window_ovf_count = 0
 
 
-                if threading.active_count() == 1:
-                    ani = FuncAnimation(self.f, self.animate, interval=10, blit=True)
+                if not self.thread.is_alive():
+                    #ani = FuncAnimation(self.f, self.animate, interval=10, blit=True)
                     self.line1.set_data([], [])
                     self.line2.set_data([], [])
-
-                    thread = threading.Thread(name="data_collection_thread", daemon=True, target=self.data_collection, args=(ani,))
-                    thread.start()
+                    
+                    # Concurrent instances of thread and animation function
+                    self.ani = FuncAnimation(self.f, self.animate, interval=10, blit=True)
+                    self.thread = threading.Thread(name="data_collection_thread", daemon=True, target=self.data_collection, args=(self.ani,))
+                    
+                    self.thread.start()
                 else: 
                     print("The previous experiment did not end correctly. Please, restart the application.")
 
