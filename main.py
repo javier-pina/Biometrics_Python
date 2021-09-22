@@ -151,8 +151,8 @@ class Application_demo():
                 else:
                     axis.zeroSamplesCounter = 0
 
-                    if axis.samplesInBuffer > 50: # this is the samples limit explained in data_structure.py
-                        axis.samplesInBuffer = 50
+                    if axis.samplesInBuffer > OLI.MAX_SAMPLES: # this is the samples limit explained in data_structure.py
+                        axis.samplesInBuffer = OLI.MAX_SAMPLES
 
                     # Calculate the miliseconds to read from the memory buffer using the samples available in this buffer and the sample rate
                     mStoGet = round(axis.samplesInBuffer * 1000 / axis.sampleRate)

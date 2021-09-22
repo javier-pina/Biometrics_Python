@@ -16,3 +16,6 @@ ONLINE_STOP			= ctypes.c_int(6)	# stop data transfer
 ONLINE_OK			= ctypes.c_int(0)
 ONLINE_COMMSFAIL	= ctypes.c_int(-3)
 ONLINE_OVERRUN		= ctypes.c_int(-4)
+
+MAX_DATA = 20
+MAX_SAMPLES = MAX_DATA - 10
